@@ -79,12 +79,57 @@ bool SocketAPM::connect(const char *address, uint16_t port)
  */
 bool SocketAPM::bind(const char *address, uint16_t port)
 {
+   // Inicialização da WolfSSL
+    wolfSSL_Init(); /* Inicializa o WolfSSL */
+
+    // Criação do WOLFSSL_CTX
+    WOLFSSL_CTX *ctx;
+    if ((ctx = wolfSSL_CTX_new(wolfTLSv1_2_client_method())) == NULL)
+    {
+        fprintf(stderr, "wolfSSL_CTX_new error.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Carrega os certificados CA no WOLFSSL_CTX
+    if (wolfSSL_CTX_load_verify_locations(ctx, "./certificados/certs.pem", 0) != SSL_SUCCESS)
+    {
+        fprintf(stderr, "Error loading ./certificados/certs.pem, please check the file.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Criação da estrutura sockaddr_in para o endereço e porta
     struct sockaddr_in sockaddr;
     make_sockaddr(address, port, sockaddr);
 
-    if (::bind(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) != 0) {
+    // Conexão usando TLS
+    if (::connect(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) != 0)
+    {
         return false;
     }
+
+    // Configuração do contexto TLS no socket
+    ssl = wolfSSL_new(ctx);
+    if (ssl == NULL)
+    {
+        fprintf(stderr, "Error creating SSL object.\n");
+        exit(EXIT_FAILURE);
+    }
+    wolfSSL_set_fd(ssl, fd);
+
+    // Inicia o handshake do TLS
+    if (wolfSSL_connect(ssl) != SSL_SUCCESS)
+    {
+        fprintf(stderr, "Error establishing TLS connection.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // A partir daqui, a conexão está estabelecida e segura
+    // Você pode usar o objeto 'ssl' para enviar e receber dados com segurança
+
+    wolfSSL_free(ssl);     // Liberar o objeto SSL em caso de falha na conexão
+    wolfSSL_CTX_free(ctx); // Liberar o contexto SSL em caso de falha na conexão
+    wolfSSL_Cleanup();     // Limpar recursos do wolfSSL em caso de falha na conexão
+
     return true;
 }
 
@@ -125,7 +170,7 @@ bool SocketAPM::set_cloexec() const
  */
 ssize_t SocketAPM::send(const void *buf, size_t size) const
 {
-    return ::send(fd, buf, size, 0);
+    return wolfSSL_write(ssl, buf, size);
 }
 
 /*
@@ -135,7 +180,17 @@ ssize_t SocketAPM::sendto(const void *buf, size_t size, const char *address, uin
 {
     struct sockaddr_in sockaddr;
     make_sockaddr(address, port, sockaddr);
-    return ::sendto(fd, buf, size, 0, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
+
+    // Obtenha os dados criptografados usando wolfSSL_write()
+    int encryptedSize = wolfSSL_write(ssl, buf, size);
+    if (static_cast<size_t>(encryptedSize) != size)
+    {
+        // err_sys("wolfSSL_write failed");
+        return -1;
+    }
+
+    // Envie os dados criptografados usando ::sendto()
+    return ::sendto(fd, buf, encryptedSize, 0, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
 }
 
 /*
@@ -143,9 +198,20 @@ ssize_t SocketAPM::sendto(const void *buf, size_t size, const char *address, uin
  */
 ssize_t SocketAPM::recv(void *buf, size_t size, uint32_t timeout_ms)
 {
-    if (!pollin(timeout_ms)) {
+    if (!pollin(timeout_ms))
+    {
         return -1;
     }
+
+    // Variáveis para receber os dados criptografados
+    char encryptedBuffer[size];
+    int encryptedSize = wolfSSL_read(ssl, encryptedBuffer, size);
+    if (encryptedSize <= 0)
+    {
+        // err_quit("wolfSSL_read error");
+        return -1;
+    }
+
     socklen_t len = sizeof(in_addr);
     return ::recvfrom(fd, buf, size, MSG_DONTWAIT, (sockaddr *)&in_addr, &len);
 }

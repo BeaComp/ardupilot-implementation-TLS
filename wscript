@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # encoding: utf-8
 
+#teste
+
 from __future__ import print_function
 
 import os.path
@@ -428,6 +430,8 @@ def _collect_autoconfig_files(cfg):
                 cfg.files.append(p)
 
 def configure(cfg):
+    
+
 	# we need to enable debug mode when building for gconv, and force it to sitl
     if cfg.options.board is None:
         cfg.options.board = 'sitl'
@@ -600,6 +604,14 @@ def configure(cfg):
 
     # add in generated flags
     cfg.env.CXXFLAGS += ['-include', 'ap_config.h']
+    # cfg.env.CXXFLAGS += ['-include', 'ap_config.h', '-lwolfssl']
+    # cfg.env.append_value("LINKFLAGS", "-lwolfssl")
+    # cfg.find_program('wolfssl', mandatory=False)
+    # cfg.env.LIBPATH.append("/usr/local/lib/")
+    cfg.env.LIB_WOLFSSL = ['wolfssl']
+    cfg.env.LIBPATH_WOLFSSL = ['/usr/local/lib/']
+    cfg.env.INCLUDES_WOLFSSL = ['/usr/local/include/']
+    # cfg.check('wolfssl')
 
     _collect_autoconfig_files(cfg)
 
@@ -825,6 +837,7 @@ def _load_pre_build(bld):
         brd.pre_build(bld)    
 
 def build(bld):
+    # bld(use=["wolfssl"])
     config_hash = Utils.h_file(bld.bldnode.make_node('ap_config.h').abspath())
     bld.env.CCDEPS = config_hash
     bld.env.CXXDEPS = config_hash

@@ -10,16 +10,16 @@
 /*
   send 1 byte and do byte stuffing
 */
-void AP_Frsky_D::send_byte(uint8_t byte)
+void AP_Frsky_D::send_byte(uint8_t var_byte)
 {
-    if (byte == START_STOP_D) {
+    if (var_byte == START_STOP_D) {
         _port->write(0x5D);
         _port->write(0x3E);
-    } else if (byte == BYTESTUFF_D) {
+    } else if (var_byte == BYTESTUFF_D) {
         _port->write(0x5D);
         _port->write(0x3D);
     } else {
-        _port->write(byte);
+        _port->write(var_byte);
     }
 }
 
@@ -29,11 +29,11 @@ void AP_Frsky_D::send_byte(uint8_t byte)
 void AP_Frsky_D::send_uint16(uint16_t id, uint16_t data)
 {
     _port->write(START_STOP_D);    // send a 0x5E start byte
-    uint8_t *bytes = (uint8_t*)&id;
-    send_byte(bytes[0]);
-    bytes = (uint8_t*)&data;
-    send_byte(bytes[0]); // LSB
-    send_byte(bytes[1]); // MSB
+    uint8_t *mybytes = (uint8_t*)&id;
+    send_byte(mybytes[0]);
+    mybytes = (uint8_t*)&data;
+    send_byte(mybytes[0]); // LSB
+    send_byte(mybytes[1]); // MSB
 }
 
 /*

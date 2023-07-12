@@ -28,6 +28,7 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <sys/select.h>
+#include <wolfssl/ssl.h>
 
 class SocketAPM {
 public:
@@ -67,6 +68,8 @@ private:
     struct sockaddr_in in_addr {};
 
     int fd = -1;
+
+    WOLFSSL* ssl;
 
     void make_sockaddr(const char *address, uint16_t port, struct sockaddr_in &sockaddr);
 };
