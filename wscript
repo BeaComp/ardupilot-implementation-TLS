@@ -608,6 +608,7 @@ def configure(cfg):
     # cfg.env.append_value("LINKFLAGS", "-lwolfssl")
     # cfg.find_program('wolfssl', mandatory=False)
     # cfg.env.LIBPATH.append("/usr/local/lib/")
+    cfg.env.append_value('LIB', ['wolfssl'])
     cfg.env.LIB_WOLFSSL = ['wolfssl']
     cfg.env.LIBPATH_WOLFSSL = ['/usr/local/lib/']
     cfg.env.INCLUDES_WOLFSSL = ['/usr/local/include/']
