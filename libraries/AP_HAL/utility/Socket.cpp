@@ -68,6 +68,14 @@ void SocketAPM::make_sockaddr(const char *address, uint16_t port, struct sockadd
  */
 bool SocketAPM::connect(const char *address, uint16_t port)
 {
+    int ret_log = 0;
+    ret_log = wolfSSL_Debugging_ON();
+    if (ret_log != 0) {
+        // failed to set logging callback
+        fprintf(stderr, "failed to turn debug on.\n");
+        exit(EXIT_FAILURE);
+    }
+
     // Inicialização da WolfSSL
     wolfSSL_Init(); /* Inicializa o WolfSSL */
 
@@ -86,13 +94,6 @@ bool SocketAPM::connect(const char *address, uint16_t port)
         exit(EXIT_FAILURE);
     }
 
-    if (wolfSSL_CTX_load_verify_locations(ctx, "/home/ravena/ssl-tutorial-2.3/finished_src/certs/server-cert.pem", NULL) != SSL_SUCCESS)
-    {
-        fprintf(stderr, "Error loading ../certs/server-cert.pem, please check the file.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    
     // Criação da estrutura sockaddr_in para o endereço e porta
     struct sockaddr_in sockaddr;
 
