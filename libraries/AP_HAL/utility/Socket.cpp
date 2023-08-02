@@ -20,7 +20,7 @@
 #if HAL_OS_SOCKETS
 
 #include "Socket.h"
-#define CERT_FILE "/home/ravena/ardupilot-implementation-TLS/libraries/AP_HAL/utility/certs/ca-cert.pem"
+#define CERT_FILE "/home/ravena/ssl-tutorial-2.3/finished_src/certs/ca-cert.pem"
 
 /*
   constructor
@@ -88,7 +88,13 @@ bool SocketAPM::connect(const char *address, uint16_t port)
     }
 
     // Carrega os certificados CA no WOLFSSL_CTX
-    if (wolfSSL_CTX_load_verify_locations(ctx, "/home/ravena/ssl-tutorial-2.3/finished_src/certs/ca-cert.pem", NULL) != SSL_SUCCESS)
+    if (wolfSSL_CTX_load_verify_locations(ctx, "/home/ravena/ssl-tutorial-2.3/finished_src/certs/ca-cert.pem", 0) != SSL_SUCCESS)
+    {
+        fprintf(stderr, "Error loading ../certs/ca-cert.pem, please check the file.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (wolfSSL_CTX_load_verify_locations(ctx, "/home/ravena/ssl-tutorial-2.3/finished_src/certs/server-cert.pem", 0) != SSL_SUCCESS)
     {
         fprintf(stderr, "Error loading ../certs/ca-cert.pem, please check the file.\n");
         exit(EXIT_FAILURE);
@@ -159,11 +165,14 @@ bool SocketAPM::connect(const char *address, uint16_t port)
     printf("TLS connection established.\n");
 
     // // Suponha que você queira enviar uma mensagem de texto como dados
-    const char* message = "Ola servidor";
-    size_t messageSize = strlen(message);
+    char msg[1024];
+    int sendSz;
+    strncpy(msg, "Ola Servidor", 13);
+    sendSz = (int)strlen(msg);
+    
    
     // Chame a função send do objeto ssl
-    ssize_t bytesSent = send(message, messageSize);
+    ssize_t bytesSent = send(msg, sendSz);
  
     // Verifique se o envio foi bem-sucedido
     if (bytesSent == -1) {
