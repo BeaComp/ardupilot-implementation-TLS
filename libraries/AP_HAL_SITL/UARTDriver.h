@@ -9,6 +9,8 @@
 #include <AP_HAL/utility/Socket.h>
 #include <AP_HAL/utility/RingBuffer.h>
 #include <AP_CSVReader/AP_CSVReader.h>
+#include <wolfssl/ssl.h>
+#include <wolfssl/options.h>
 
 #include <SITL/SIM_SerialDevice.h>
 
@@ -87,6 +89,8 @@ public:
 private:
 
     int _fd;
+    WOLFSSL* ssl;
+
 
     // file descriptor for reading multicast packets
     int _mc_fd;
@@ -95,6 +99,7 @@ private:
     bool _connected = false; // true if a client has connected
     bool _use_send_recv = false;
     int _listen_fd;  // socket we are listening on
+    int listenfdWolf;
     struct sockaddr_in _listen_sockaddr;
     int _serial_port;
     static bool _console;
