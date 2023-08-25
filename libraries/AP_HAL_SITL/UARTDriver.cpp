@@ -54,7 +54,7 @@ bool UARTDriver::_console;
 
 /* UARTDriver method implementations */
 
-void UARTDriver::begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace)
+void UARTDriver::_begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace)
 {
     if (_portNumber >= ARRAY_SIZE(_sitlState->_uart_path)) {
         AP_HAL::panic("port number out of range; you may need to extend _sitlState->_uart_path");
@@ -106,7 +106,7 @@ void UARTDriver::begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace)
 #endif
         if (strcmp(devtype, "tcp") == 0) {
             uint16_t port = atoi(args1);
-            port = 23456;
+            // port = 23456;
             bool wait = (args2 && strcmp(args2, "wait") == 0);
             _tcp_start_connection(port, wait);
         } else if (strcmp(devtype, "tcpclient") == 0) {
@@ -196,11 +196,11 @@ void UARTDriver::begin(uint32_t baud, uint16_t rxSpace, uint16_t txSpace)
     _set_nonblocking(_fd);
 }
 
-void UARTDriver::end()
+void UARTDriver::_end()
 {
 }
 
-uint32_t UARTDriver::available(void)
+uint32_t UARTDriver::_available(void)
 {
     _check_connection();
 
@@ -220,44 +220,45 @@ uint32_t UARTDriver::txspace(void)
     return _writebuffer.space();
 }
 
-bool UARTDriver::read(uint8_t &c)
+// bool UARTDriver::_read(uint8_t &c)
+// {
+//     if (read(&c, 1) == 0) {
+//         return false;
+//     }
+//     return true;
+// }
+
+ssize_t UARTDriver::_read(uint8_t *buffer, uint16_t count)
 {
-    if (read(&c, 1) == 0) {
-        return false;
-    }
-    return true;
+    // fprintf(stdout, "Abriu a funcao. Count = %d\n", count);
+    //     // Usar wolfSSL_read para ler dados do socket SSL/TLS
+    //     int bytesRead = wolfSSL_read(ssl, buffer, count);
+
+    //     if (bytesRead > 0) {
+    //         // buffer[bytesRead] = '\0';
+	// 	    fprintf(stdout, "Mensagem recebida: %s \n", buffer);
+    //         return bytesRead;
+    //     } else if (bytesRead == 0) {
+    //          fprintf(stdout, "The peer has closed the connection.\n");
+    //         return -1;
+    //     } else {
+    //         // Ocorreu um erro na leitura
+    //         int error = wolfSSL_get_error(ssl, bytesRead);
+    //         printf("error no read = %d, %s\n", error, wolfSSL_ERR_error_string(error, reinterpret_cast<char*>(buffer)));
+    //     }
+
+
+    // return 0; // Indicativo de erro
+    return _readbuffer.read(buffer, count);
 }
 
-ssize_t UARTDriver::read(uint8_t *buffer, uint16_t count)
-{
-    fprintf(stdout, "Abriu a funcao.\n");
-        // Usar wolfSSL_read para ler dados do socket SSL/TLS
-        int bytesRead = wolfSSL_read(ssl, buffer, count);
-
-        if (bytesRead > 0) {
-            buffer[bytesRead] = '\0';
-		    fprintf(stdout, "Mensagem recebida: %s \n", buffer);
-            return bytesRead;
-        } else if (bytesRead == 0) {
-             fprintf(stdout, "The peer has closed the connection.\n");
-            return -1;
-        } else {
-            // Ocorreu um erro na leitura
-            int error = wolfSSL_get_error(ssl, bytesRead);
-            printf("error no read = %d, %s\n", error, wolfSSL_ERR_error_string(error, reinterpret_cast<char*>(buffer)));
-        }
-
-
-    return 0; // Indicativo de erro
-}
-
-bool UARTDriver::discard_input(void)
+bool UARTDriver::_discard_input(void)
 {
     _readbuffer.clear();
     return true;
 }
 
-void UARTDriver::flush(void)
+void UARTDriver::_flush(void)
 {
     // flush the write buffer - but don't fail and don't
     // infinitely-loop.  This is not a good definition of "flush", but
@@ -290,12 +291,13 @@ void UARTDriver::flush(void)
 //     return 1;
 // }
 
-size_t UARTDriver::write(uint8_t c)
+// size_t UARTDriver::_write(uint8_t c)
+// {
+//     return write(&c, 1);
+// }
+size_t UARTDriver::_write(const uint8_t *buffer, size_t size)
 {
-    return write(&c, 1);
-}
-size_t UARTDriver::write(const uint8_t *buffer, size_t size)
-{
+    
     if (txspace() <= size) {
         size = txspace();
     }
@@ -303,6 +305,7 @@ size_t UARTDriver::write(const uint8_t *buffer, size_t size)
         return 0;
     }
     if (_unbuffered_writes) {
+        
         const ssize_t nwritten = ::write(_fd, buffer, size);
         if (nwritten == -1 && errno != EAGAIN && _uart_path) {
             close(_fd);
@@ -428,8 +431,8 @@ void UARTDriver::_tcp_start_connection(uint16_t port, bool wait_for_connection)
     }
 
     if (wait_for_connection) {
-        
 
+        fprintf(stderr, "Init wait for connection.\n");
         // int ret_log = 0;
         // ret_log = wolfSSL_Debugging_ON();
         // if (ret_log != 0) {
@@ -441,6 +444,7 @@ void UARTDriver::_tcp_start_connection(uint16_t port, bool wait_for_connection)
         // WolfSSL initialization and setup
         wolfSSL_Init();
         WOLFSSL_CTX* ctx; 
+        fprintf(stderr, "After wolfssl_init - UARTDriver.\n");
         
         if ( (ctx = wolfSSL_CTX_new(wolfTLSv1_2_server_method())) == NULL) {
 		        fprintf(stderr, "wolfSSL_CTX_new error.\n");
@@ -448,9 +452,12 @@ void UARTDriver::_tcp_start_connection(uint16_t port, bool wait_for_connection)
 	    } else {
             fprintf(stderr, "wolfSSL_CTX_new create - UARTDriver.\n");
         }
+        fprintf(stderr, "After wolfssl_ctx_new - UARTDriver.\n");
 
         /* Load CA certificates into WOLFSSL_CTX */
-        if (wolfSSL_CTX_load_verify_locations(ctx,"/home/ravena/ssl-tutorial-2.3/finished_src/certs/ca-cert.pem",0) !=
+        // if (wolfSSL_CTX_load_verify_locations(ctx,"/home/ravena/ssl-tutorial-2.3/finished_src/certs/ca-cert.pem",0) !=
+        //         SSL_SUCCESS) {
+        if (wolfSSL_CTX_load_verify_locations(ctx,"/home/beatriz/ssl-tutorial-2.3/finished_src/certs/ca-cert.pem",0) !=
                 SSL_SUCCESS) {
             fprintf(stderr, "Error loading ../certs/ca-cert.pem, "
                     "please check the file.\n");
@@ -458,7 +465,9 @@ void UARTDriver::_tcp_start_connection(uint16_t port, bool wait_for_connection)
         }
 
         /* Load server certificate into WOLFSSL_CTX */
-        if (wolfSSL_CTX_use_certificate_file(ctx,"/home/ravena/ssl-tutorial-2.3/finished_src/certs/ca-cert.pem",
+        // if (wolfSSL_CTX_use_certificate_file(ctx,"/home/ravena/ssl-tutorial-2.3/finished_src/certs/ca-cert.pem",
+        //             SSL_FILETYPE_PEM) != SSL_SUCCESS) {
+        if (wolfSSL_CTX_use_certificate_file(ctx,"/home/beatriz/ssl-tutorial-2.3/finished_src/certs/ca-cert.pem",
                     SSL_FILETYPE_PEM) != SSL_SUCCESS) {
             fprintf(stderr, "Error loading CTX ../certs/ca-cert.pem, "
                 "please check the file.\n");
@@ -466,16 +475,22 @@ void UARTDriver::_tcp_start_connection(uint16_t port, bool wait_for_connection)
         }
 
         /* Load server key into WOLFSSL_CTX */
-        if (wolfSSL_CTX_use_PrivateKey_file(ctx,"/home/ravena/ssl-tutorial-2.3/finished_src/certs/server-key.pem",
+        // if (wolfSSL_CTX_use_PrivateKey_file(ctx,"/home/ravena/ssl-tutorial-2.3/finished_src/certs/server-key.pem",
+        //             SSL_FILETYPE_PEM) != SSL_SUCCESS) {
+        if (wolfSSL_CTX_use_PrivateKey_file(ctx,"/home/beatriz/ssl-tutorial-2.3/finished_src/certs/server-key.pem",
                     SSL_FILETYPE_PEM) != SSL_SUCCESS) {
             fprintf(stderr, "Error loading ../certs/server-key.pem, "
                 "please check the file.\n");
             exit(EXIT_FAILURE);
         }
 
-        fprintf(stdout, "ANTES DO WATING ....\n");
-        fprintf(stdout, "Waiting for connection ....\n");
-        fflush(stdout);
+        fprintf(stderr, "ANTES DO WATING ....\n");
+        fprintf(stderr, "Waiting for connection ....\n");
+        fprintf(stderr, "bind port %u for %u\n",
+                (unsigned)ntohs(_listen_sockaddr.sin_port),
+                (unsigned)_portNumber);
+        fflush(stderr);
+        
         _fd = accept(listenfdWolf, nullptr, nullptr);
         if (_fd == -1) {
             fprintf(stderr, "accept() error - %s", strerror(errno));
@@ -485,7 +500,7 @@ void UARTDriver::_tcp_start_connection(uint16_t port, bool wait_for_connection)
         setsockopt(_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
         fcntl(_fd, F_SETFD, FD_CLOEXEC);
         _connected = true;
-        fprintf(stdout, "Connection on serial port %u\n", (unsigned)ntohs(_listen_sockaddr.sin_port));
+        fprintf(stderr, "Connection on serial port %u\n", (unsigned)ntohs(_listen_sockaddr.sin_port));
         
         
 
@@ -507,30 +522,28 @@ void UARTDriver::_tcp_start_connection(uint16_t port, bool wait_for_connection)
             fprintf(stderr, "Wolfssl_set_fd sucess - UARTDriver.\n");
         }
 
-        // // Realizar o handshake do SSL/TLS
-        // if (wolfSSL_accept(ssl) != SSL_SUCCESS) {
-        //     fprintf(stderr, "SSL handshake error.\n");
-        //     exit(1);
-        // }
+        // Realizar o handshake do SSL/TLS
+        if (wolfSSL_accept(ssl) != SSL_SUCCESS) {
+            fprintf(stderr, "SSL handshake error.\n");
+            exit(1);
+        }
 
         fprintf(stderr, "Tudo certo - UARTDriver.\n");
 
          // Definir um buffer para armazenar os dados lidos
-        uint8_t bufferRead[1024]; // Por exemplo, um buffer de 1024 bytes
+        // uint8_t bufferRead[1024]; // Por exemplo, um buffer de 1024 bytes
 
         // Chamar o método read da instância uartDriver
-        read(bufferRead, sizeof(bufferRead));
-        fprintf(stderr, "Depois do READ - UARTDriver.\n");
+        // read(bufferRead, sizeof(bufferRead));
+        // fprintf(stderr, "Depois do READ - UARTDriver.\n");
 
 
         // if (bytesRead == -1) {
         //     fprintf(stderr, "O envio da mensagem falhou.\n");
         // } 
 
-        wolfSSL_CTX_free(ctx);
-        printf("wolfSSL_CTX freed\n");
-
-
+        // wolfSSL_CTX_free(ctx);
+        // printf("wolfSSL_CTX freed\n");
     }
 }
 
@@ -958,12 +971,12 @@ void UARTDriver::_timer_tick(void)
     if (_sitl && _sitl->telem_baudlimit_enable) {
         // limit byte rate to configured baudrate
         uint32_t now = AP_HAL::micros();
-        float dt = 1.0e-6 * (now - last_tick_us);
+        float dt = 1.0e-6 * (now - last_read_tick_us);
         max_bytes = _uart_baudrate * dt / 10;
         if (max_bytes == 0) {
             return;
         }
-        last_tick_us = now;
+        last_read_tick_us = now;
     }
 #endif
     if (_packetise) {
@@ -991,6 +1004,7 @@ void UARTDriver::_timer_tick(void)
             if (_sim_serial_device != nullptr) {
                 nwritten = _sim_serial_device->write_to_device((const char*)readptr, navail);
             } else if (!_use_send_recv) {
+                // fprintf(stdout, "Inside write UARTDriver.cpp size = %d buffer %s\n", navail, readptr);
                 nwritten = ::write(_fd, readptr, navail);
                 if (nwritten == -1 && errno != EAGAIN && _uart_path) {
                     close(_fd);
@@ -998,7 +1012,8 @@ void UARTDriver::_timer_tick(void)
                     _connected = false;
                 }
             } else {
-                nwritten = send(_fd, readptr, navail, MSG_DONTWAIT);
+                // fprintf(stdout, "Inside send UARTDriver.cpp size = %d buffer %s\n", navail, readptr);
+                nwritten = wolfSSL_write(ssl, readptr, navail);
             }
             if (nwritten > 0) {
                 _writebuffer.advance(nwritten);
@@ -1053,7 +1068,11 @@ void UARTDriver::_timer_tick(void)
             _connected = false;
         }
     } else if (_select_check(_fd)) {
-        nread = recv(_fd, buf, space, MSG_DONTWAIT);
+        // fprintf(stdout, "Inside read UARTDriver.cpp size = %d\n", space);
+        // nread = recv(_fd, buf, space, MSG_DONTWAIT);
+        nread = wolfSSL_read(ssl, buf, space);
+        // fprintf(stdout, "Inside read UARTDriver.cpp nread = %zu\n", nread);
+        // sleep(100);
         if (nread <= 0 && !_is_udp) {
             // the socket has reached EOF
             close(_fd);
